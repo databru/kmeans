@@ -1,2 +1,112 @@
 O agrupamento k-means é um método de segregar em torno de centros diversos dados, 
 ele busca dividir em grupos amostras de acordo com um número de clusters pré-determinado, que possuem uma semelhança.
+
+install.packages("cluster")
+install.packages("factoextra")
+install.packages("fpc")
+
+library(fpc)
+library(cluster)
+library(factoextra)
+library(readxl)
+
+## Lendo os dados do arquivo Excel
+dados2 <- read_excel("LOCAL DO ARQUIVO")
+
+# Define o número de clusters desejado - Quantidade de clusters foi definido pelo metodo Elbow
+num_clusters <- 3
+
+# Seleciona apenas as colunas numéricas para a análise
+df_numeric <- dados2[, sapply(dados2, is.numeric)]
+
+# Normaliza os dados para que as compras tenham a mesma escala
+normalized_df <- scale(df_numeric)
+
+# Aplica o K-means para clustering
+kmeans_result <- kmeans(normalized_df, centers = num_clusters, nstart = 50)
+dados2$cluster <- as.factor(kmeans_result$cluster)
+
+# Visualização dos Clusters (2D PCA)
+pca_result <- prcomp(normalized_df, center = TRUE, scale. = TRUE)
+reduced_data <- as.data.frame(pca_result$x[, 1:2])
+
+# Adiciona a coluna 'cluster' ao DataFrame original
+dados2$cluster <- as.factor(kmeans_result$cluster)
+
+# Exibe a visualização dos clusters com informações adicionais
+fviz_cluster(kmeans_result, geom = "point", data = reduced_data, stand = FALSE, ellipse.type = "norm")
+
+# Exibe as métricas de avaliação de clusters
+cat("Número de clusters:", num_clusters, "\n\n")
+cat("Métricas de Silhueta:\n")
+print(silhouette(kmeans_result$cluster, dist(normalized_df)))
+
+##################EXPLORANDO OS MOTIVOS############################
+
+summary(dados2[dados2$cluster == 1, ])
+
+#Perfil Médio
+
+# Substitua "1" pelo número do cluster que você está interessado
+cluster_selecionado <- 3
+
+# Filtra apenas as linhas pertencentes ao cluster desejado
+dados_cluster <- dados2[dados2$cluster == 3, ]
+
+# Seleciona apenas as colunas correspondentes aos meses
+colunas_meses <- grep("coluna1|^coluna2|^coluna3|^coluna4|^coluna5...|", colnames(dados_cluster))
+dados_meses <- dados_cluster[, colunas_meses]
+
+# Calcula o perfil médio das compras para o Cluster
+perfil_medio <- colMeans(dados_meses, na.rm = TRUE)
+
+# Exibe o perfil médio
+print(perfil_medio)
+
+####PCA por Cluster
+
+# Substitua "1" pelo número do cluster que você está interessado
+cluster_selecionado <- 1
+
+# Filtra apenas as linhas pertencentes ao cluster desejado
+dados_cluster <- dados2[dados2$cluster == 1, ]
+
+# Seleciona apenas as colunas correspondentes aos meses
+colunas_meses <- grep("coluna1|^coluna2|^coluna3|^coluna4|^coluna5...|", colnames(dados_cluster))
+dados_meses <- dados_cluster[, colunas_meses]
+
+# Realiza a PCA
+pca_resultado <- prcomp(dados_meses, scale. = TRUE)
+
+# Extrai os dois primeiros componentes principais
+PC1 <- pca_resultado$x[, 1]
+PC2 <- pca_resultado$x[, 2]
+
+# Cria um dataframe para a visualização
+dados_pca <- data.frame(CNPJ = dados_cluster$`Customer CNPJ`, PC1 = PC1, PC2 = PC2)
+
+# Visualização 2D
+ggplot(dados_pca, aes(x = PC1, y = PC2)) +
+  geom_point() +
+  labs(title = "Visualização 2D dos CNPJs - PCA")
+
+##ANALISANDO SAZONALIDADE MENSAL
+
+dados_meses <- dados_cluster[, grep("coluna1|^coluna2|^coluna3|^coluna4|^coluna5...|", colnames(dados_cluster))]
+
+# Calcula a frequência de compras por mês
+frequencia_compras <- colSums(dados_meses)
+
+# Cria um gráfico de barras para visualizar a frequência de compra
+barplot(frequencia_compras, names.arg = colnames(dados_meses), col = "steelblue", main = "Frequência de Compra por Mês", xlab = "Mês", ylab = "Total de Compras")
+----------------------------------------------------------------------------------------------
+
+###SALVANDO OS DADOS2
+
+install.packages("writexl")
+
+# Carregue a biblioteca
+library(writexl)
+
+# EXPORTANDO
+write_xlsx(dados2, path = "LOCAL DA SUA MÁQUINA PARA SALVAR O ARQUIVO")
